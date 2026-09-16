@@ -1,0 +1,32 @@
+name: Patch DPI landing page
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - scripts/patch-dpi.mjs
+      - .github/workflows/patch-dpi.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Patch landing page
+        run: node scripts/patch-dpi.mjs
+      - name: Commit patched page
+        run: |
+          if git diff --quiet -- campaigns/dana-pendidikan-inovatif/index.html; then
+            echo "No landing-page changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add campaigns/dana-pendidikan-inovatif/index.html
+          git commit -m "Update DPI application and corporate flows"
+          git push
