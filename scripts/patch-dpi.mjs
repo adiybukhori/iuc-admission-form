@@ -1,66 +1,30 @@
 import fs from 'node:fs';
 
-const file = 'campaigns/dana-pendidikan-inovatif/index.html';
-let html = fs.readFileSync(file, 'utf8');
+const file='campaigns/dana-pendidikan-inovatif/index.html';
+let html=fs.readFileSync(file,'utf8');
 
-const sectionPattern = /<section id="permohonan"[\s\S]*?<\/section>(?:<section id="korporat"[\s\S]*?<\/section>)?/;
-if (!sectionPattern.test(html)) {
-  throw new Error('DPI application section not found; refusing to patch blindly.');
+// Keep only the first Corporate/HR section if an earlier workflow run duplicated it.
+let corporateSeen=false;
+html=html.replace(/<section id="korporat"[\s\S]*?<\/section>/g,section=>{
+  if(corporateSeen)return '';
+  corporateSeen=true;
+  return section;
+});
+
+// Keep only the final complete DPI submission helper + listeners block.
+const helper='const dpiValue=id=>';
+const firstHelper=html.indexOf(helper);
+const lastHelper=html.lastIndexOf(helper);
+if(firstHelper>=0&&lastHelper>firstHelper){
+  html=html.slice(0,firstHelper)+html.slice(lastHelper);
 }
 
-const styles = `
-/* DPI application + corporate lead capture */
-.application-form select{font:inherit;width:100%;padding:12px;border:1px solid #cbbdce;border-radius:6px;background:#fff;color:var(--ink)}
-.application-form .result{margin-top:16px}.application-form .btn[disabled]{opacity:.62;cursor:wait;transform:none}
-.corporate-section{background:#fff}.corporate-layout{display:grid;grid-template-columns:.9fr 1.1fr;gap:60px;align-items:start}.corporate-copy>p{color:var(--muted)}.corporate-points{display:grid;gap:13px;margin:28px 0}.corporate-point{display:flex;gap:12px;align-items:flex-start}.corporate-point span{color:var(--blue);font-weight:800}.corporate-point p{margin:0;color:var(--muted)}.corporate-form{background:#faf8fb}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}.field-full{grid-column:1/-1}.status-note{font-size:13px;color:var(--muted);margin:12px 0 0}
-@media(max-width:750px){.corporate-layout,.form-grid{grid-template-columns:1fr;gap:23px}.form-grid{gap:0}.field-full{grid-column:auto}}
-`;
-if (!html.includes('/* DPI application + corporate lead capture */')) {
-  html = html.replace('</style>', styles + '</style>');
+if(html.includes('mailto:adiybukhori@innovative.edu.my'))throw new Error('Legacy mailto flow is still present.');
+for(const required of ['id="application-form"','id="app-hope"','id="app-share"','id="corporate-form"','/api/dpi-submit']){
+  if(!html.includes(required))throw new Error('Required DPI element missing: '+required);
 }
+if((html.match(/const dpiValue=id=>/g)||[]).length!==1)throw new Error('DPI helper JavaScript is still duplicated.');
+if((html.match(/id="corporate-form"/g)||[]).length!==1)throw new Error('Corporate form is still duplicated.');
 
-const applicationAndCorporate = `<section id="permohonan" class="application-section"><div class="wrap application-layout"><div><p class="eyebrow">Permohonan Dana Pendidikan Inovatif</p><h2>Beritahu kami<br><span>kenapa peluang ini penting.</span></h2><p>Ini ialah permohonan awal Dana Pendidikan Inovatif, bukan pendaftaran rasmi pengajian. Jawapan anda membantu pihak kolej memahami matlamat, kesediaan dan komitmen anda sebelum semakan dibuat.</p><ul><li>Tiada bayaran semasa menghantar permohonan.</li><li>Maklumat dihantar terus ke sistem untuk semakan.</li><li>Keputusan dan langkah seterusnya akan dimaklumkan melalui emel yang didaftarkan.</li></ul><p class="draft-notice"><b>Nota:</b> Anda tidak perlu membuka aplikasi email atau menghantar permohonan secara manual.</p></div><form class="application-form" id="application-form"><h3>Mohon Dana Pendidikan</h3><p class="micro">Sila jawab dengan lengkap. Medan bertanda wajib perlu dilengkapkan sebelum permohonan dihantar.</p><div class="field"><label for="app-name">Nama penuh *</label><input id="app-name" autocomplete="name" maxlength="120" required></div><div class="field"><label for="app-phone">No. WhatsApp *</label><input id="app-phone" type="tel" autocomplete="tel" maxlength="40" required></div><div class="field"><label for="app-email">Email *</label><input id="app-email" type="email" autocomplete="email" maxlength="160" required></div><div class="field"><label for="app-work">Status pekerjaan *</label><select id="app-work" required><option value="">Pilih status</option><option>Bekerja sepenuh masa</option><option>Bekerja separuh masa</option><option>Bekerja sendiri / berniaga</option><option>Tidak bekerja buat masa ini</option><option>Lain-lain</option></select></div><div class="field"><label for="app-purpose">Mengapa anda mahu sambung belajar dan apakah perubahan yang anda harapkan? *</label><textarea id="app-purpose" rows="4" maxlength="1200" required></textarea></div><div class="field"><label for="app-hope">Apakah harapan anda sekiranya permohonan ini diluluskan? *</label><textarea id="app-hope" rows="4" maxlength="1200" required></textarea></div><div class="field"><label for="app-time">Berapa banyak masa yang anda boleh komit untuk belajar setiap minggu? *</label><select id="app-time" required><option value="">Pilih anggaran masa</option><option>Kurang 3 jam</option><option>3–5 jam</option><option>6–10 jam</option><option>Lebih 10 jam</option></select></div><div class="field"><label for="app-challenge">Apakah cabaran utama yang mungkin mengganggu pengajian anda? *</label><textarea id="app-challenge" rows="3" maxlength="1000" required></textarea></div><div class="field"><label for="app-payment">Jika diluluskan, pilihan bayaran yang lebih sesuai untuk anda? *</label><select id="app-payment" required><option value="">Pilih satu</option><option>Sekali gus</option><option>Ansuran</option><option>Perlu berbincang dahulu</option></select></div><div class="field"><label for="app-start">Jika diluluskan, sejauh mana anda bersedia untuk memulakan proses pendaftaran? *</label><select id="app-start" required><option value="">Pilih satu</option><option>Sedia untuk teruskan</option><option>Perlu semak jadual dahulu</option><option>Perlu semak kewangan dahulu</option><option>Masih mempertimbangkan</option></select></div><div class="field"><label for="app-share">Sekiranya permohonan anda berjaya, adakah anda bersedia berkongsi peluang ini dengan rakan, ahli keluarga atau rakan sekerja? *</label><select id="app-share" required><option value="">Pilih satu</option><option>Ya</option><option>Mungkin</option><option>Tidak buat masa ini</option></select></div><label class="commitment"><input id="app-commit" type="checkbox" required><span>Saya mengesahkan maklumat yang diberikan adalah benar dan saya memahami bahawa permohonan ini tertakluk kepada semakan kelayakan serta bukan pengesahan pendaftaran.</span></label><button class="btn" id="application-submit" type="submit">Hantar Permohonan ↗</button><div class="result" id="application-result" role="status" aria-live="polite"></div><p class="status-note">Maklumat anda akan dihantar terus untuk semakan. Anda tidak perlu menghantar email berasingan.</p></form></div></section><section id="korporat" class="corporate-section"><div class="wrap corporate-layout"><div class="corporate-copy"><p class="eyebrow">Untuk HR &amp; Organisasi</p><h2>Dana Pendidikan<br>untuk organisasi anda.</h2><p>Mahu menawarkan peluang melanjutkan pengajian kepada kakitangan? Innovative University College boleh berbincang mengenai kerjasama pendidikan untuk syarikat dan organisasi yang mahu membuka akses pengajian kepada pekerja melalui Dana Pendidikan Inovatif.</p><div class="corporate-points"><div class="corporate-point"><span>01</span><p>Pendaftaran berkumpulan untuk kakitangan yang layak.</p></div><div class="corporate-point"><span>02</span><p>Program dan jadual yang sesuai untuk golongan bekerja.</p></div><div class="corporate-point"><span>03</span><p>Sesi taklimat khas bersama HR atau pihak pengurusan.</p></div><div class="corporate-point"><span>04</span><p>Perbincangan struktur tajaan atau pembayaran mengikut keperluan organisasi.</p></div></div><p class="micro">Hantar maklumat ringkas. Pasukan kami akan hubungi PIC untuk perbincangan lanjut.</p></div><form class="application-form corporate-form" id="corporate-form"><h3>Bincang Kerjasama Korporat</h3><div class="form-grid"><div class="field"><label for="corp-org">Nama organisasi *</label><input id="corp-org" maxlength="180" required></div><div class="field"><label for="corp-pic">Nama PIC *</label><input id="corp-pic" autocomplete="name" maxlength="120" required></div><div class="field"><label for="corp-role">Jawatan *</label><input id="corp-role" maxlength="120" required></div><div class="field"><label for="corp-email">Email korporat *</label><input id="corp-email" type="email" autocomplete="email" maxlength="160" required></div><div class="field"><label for="corp-phone">No. telefon / WhatsApp *</label><input id="corp-phone" type="tel" autocomplete="tel" maxlength="40" required></div><div class="field"><label for="corp-staff">Anggaran bilangan kakitangan *</label><select id="corp-staff" required><option value="">Pilih anggaran</option><option>1–5</option><option>6–10</option><option>11–30</option><option>31–50</option><option>Lebih 50</option></select></div><div class="field field-full"><label for="corp-program">Program / bidang yang diminati *</label><input id="corp-program" maxlength="220" placeholder="Contoh: Diploma in Business Administration (ODL)" required></div><div class="field field-full"><label for="corp-partnership">Apakah bentuk kerjasama yang organisasi anda ingin bincangkan? *</label><textarea id="corp-partnership" rows="4" maxlength="1400" placeholder="Contoh: tawaran kepada staf, tajaan, pendaftaran berkumpulan atau sesi taklimat" required></textarea></div></div><button class="btn" id="corporate-submit" type="submit">Hantar Pertanyaan Korporat ↗</button><div class="result" id="corporate-result" role="status" aria-live="polite"></div></form></div></section>`;
-html = html.replace(sectionPattern, applicationAndCorporate);
-
-// Keep referral/affiliate mechanics out of the public Phase 1 page.
-html = html.replace(/<p[^>]*>Jika permohonan berjaya, anda mungkin turut dijemput[\s\S]*?<\/p>/gi, '');
-html = html.replaceAll('Mohon Bantuan Yuran ↗', 'Mohon Dana Pendidikan ↗');
-html = html.replaceAll('Mohon bantuan ↗', 'Mohon sekarang ↗');
-
-const listenerMarker = "document.getElementById('application-form').addEventListener('submit'";
-const helperMarker = 'const dpiValue=id=>';
-const helperStart = html.indexOf(helperMarker);
-const listenerStart = html.lastIndexOf(listenerMarker);
-const start = helperStart >= 0 ? helperStart : listenerStart;
-const end = html.lastIndexOf('</script>');
-if (start < 0 || end < 0 || start > end) {
-  throw new Error('Current DPI submit handler not found; refusing to replace JavaScript blindly.');
-}
-
-const submitJs = `const dpiValue=id=>document.getElementById(id).value.trim();
-async function sendDpiSubmission(type,data){
-  const response=await fetch('/api/dpi-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,data})});
-  let payload={};try{payload=await response.json()}catch(_e){}
-  if(!response.ok||!payload.ok)throw new Error(payload.message||'Permohonan tidak dapat dihantar sekarang. Sila cuba lagi.');
-  return payload;
-}
-document.getElementById('application-form').addEventListener('submit',async e=>{e.preventDefault();const button=document.getElementById('application-submit'),result=document.getElementById('application-result');button.disabled=true;button.textContent='Menghantar…';result.textContent='';try{await sendDpiSubmission('individual',{fullName:dpiValue('app-name'),phone:dpiValue('app-phone'),email:dpiValue('app-email'),workStatus:dpiValue('app-work'),purpose:dpiValue('app-purpose'),approvalHope:dpiValue('app-hope'),studyTime:dpiValue('app-time'),mainChallenge:dpiValue('app-challenge'),paymentPreference:dpiValue('app-payment'),startReadiness:dpiValue('app-start'),shareWillingness:dpiValue('app-share'),commitmentAccepted:document.getElementById('app-commit').checked,programme:'Diploma in Business Administration (ODL)',source:'dpi-campaign'});result.textContent='Permohonan anda telah berjaya diterima. Permohonan akan melalui proses semakan. Keputusan dan langkah seterusnya akan dihantar melalui emel yang didaftarkan.';e.target.reset();}catch(error){result.textContent=error.message;}finally{button.disabled=false;button.textContent='Hantar Permohonan ↗';}});
-document.getElementById('corporate-form').addEventListener('submit',async e=>{e.preventDefault();const button=document.getElementById('corporate-submit'),result=document.getElementById('corporate-result');button.disabled=true;button.textContent='Menghantar…';result.textContent='';try{await sendDpiSubmission('corporate',{organization:dpiValue('corp-org'),picName:dpiValue('corp-pic'),role:dpiValue('corp-role'),email:dpiValue('corp-email'),phone:dpiValue('corp-phone'),staffCount:dpiValue('corp-staff'),programmeInterest:dpiValue('corp-program'),partnershipInterest:dpiValue('corp-partnership'),source:'dpi-campaign'});result.textContent='Maklumat kerjasama korporat telah diterima. Pasukan kami akan menghubungi PIC melalui emel atau telefon yang diberikan.';e.target.reset();}catch(error){result.textContent=error.message;}finally{button.disabled=false;button.textContent='Hantar Pertanyaan Korporat ↗';}});
-`;
-html = html.slice(0, start) + submitJs + html.slice(end);
-
-if (html.includes('mailto:adiybukhori@innovative.edu.my')) {
-  throw new Error('mailto flow still present after patch.');
-}
-for (const required of ['app-hope','app-share','corporate-form','/api/dpi-submit']) {
-  if (!html.includes(required)) throw new Error(`Required DPI element missing: ${required}`);
-}
-if ((html.match(/const dpiValue=id=>/g)||[]).length !== 1) {
-  throw new Error('DPI helper JavaScript is duplicated.');
-}
-if ((html.match(/id="corporate-form"/g)||[]).length !== 1) {
-  throw new Error('Corporate form is duplicated.');
-}
-
-fs.writeFileSync(file, html);
-console.log('DPI landing page patched successfully.');
+fs.writeFileSync(file,html);
+console.log('DPI landing page duplicate cleanup completed successfully.');
