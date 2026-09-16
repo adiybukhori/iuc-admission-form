@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const file = 'campaigns/dana-pendidikan-inovatif/index.html';
 let html = fs.readFileSync(file, 'utf8');
 
-const sectionPattern = /<section id="permohonan"[\s\S]*?<\/section>/;
+const sectionPattern = /<section id="permohonan"[\s\S]*?<\/section>(?:<section id="korporat"[\s\S]*?<\/section>)?/;
 if (!sectionPattern.test(html)) {
   throw new Error('DPI application section not found; refusing to patch blindly.');
 }
@@ -27,8 +27,11 @@ html = html.replace(/<p[^>]*>Jika permohonan berjaya, anda mungkin turut dijempu
 html = html.replaceAll('Mohon Bantuan Yuran ↗', 'Mohon Dana Pendidikan ↗');
 html = html.replaceAll('Mohon bantuan ↗', 'Mohon sekarang ↗');
 
-const marker = "document.getElementById('application-form').addEventListener('submit'";
-const start = html.lastIndexOf(marker);
+const listenerMarker = "document.getElementById('application-form').addEventListener('submit'";
+const helperMarker = 'const dpiValue=id=>';
+const helperStart = html.indexOf(helperMarker);
+const listenerStart = html.lastIndexOf(listenerMarker);
+const start = helperStart >= 0 ? helperStart : listenerStart;
 const end = html.lastIndexOf('</script>');
 if (start < 0 || end < 0 || start > end) {
   throw new Error('Current DPI submit handler not found; refusing to replace JavaScript blindly.');
@@ -51,6 +54,12 @@ if (html.includes('mailto:adiybukhori@innovative.edu.my')) {
 }
 for (const required of ['app-hope','app-share','corporate-form','/api/dpi-submit']) {
   if (!html.includes(required)) throw new Error(`Required DPI element missing: ${required}`);
+}
+if ((html.match(/const dpiValue=id=>/g)||[]).length !== 1) {
+  throw new Error('DPI helper JavaScript is duplicated.');
+}
+if ((html.match(/id="corporate-form"/g)||[]).length !== 1) {
+  throw new Error('Corporate form is duplicated.');
 }
 
 fs.writeFileSync(file, html);
