@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Penerimaan Tawaran DPI</title>
+<meta name="theme-color" content="#662d79">
+<style>
+:root{--purple:#662d79;--ink:#2d2032;--muted:#6d6170;--line:#e7dfe9;--bg:#faf8fb;--yellow:#fdc300;--green:#168a49}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55}.wrap{width:min(760px,calc(100% - 32px));margin:auto}.top{background:var(--purple);color:#fff;padding:34px 0}.brand{font-size:13px;letter-spacing:2px;text-transform:uppercase;opacity:.85}.top h1{font-size:clamp(30px,6vw,48px);line-height:1.08;margin:10px 0 8px}.top p{margin:0;color:#eee0f1}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:30px;margin:30px 0;box-shadow:0 8px 30px #36213e12}.summary{display:grid;gap:12px;margin:20px 0 28px}.row{display:grid;grid-template-columns:160px 1fr;gap:15px;padding:12px 0;border-bottom:1px solid #eee8f0}.row span{color:var(--muted)}.row strong{word-break:break-word}.notice{background:#f5eff7;border-left:4px solid var(--purple);padding:15px 17px;border-radius:6px;margin:20px 0}.check{display:flex;gap:12px;align-items:flex-start;margin:15px 0}.check input{margin-top:5px;transform:scale(1.15)}label{font-weight:700;font-size:14px}.field{margin-top:20px}.field input{width:100%;padding:13px 14px;border:1px solid #cbbdce;border-radius:8px;font:inherit;margin-top:8px}.btn{width:100%;border:0;background:var(--purple);color:#fff;padding:16px 20px;border-radius:9px;font-weight:800;font-size:16px;margin-top:22px}.btn:disabled{opacity:.55;cursor:wait}.status{margin-top:18px;padding:14px;border-radius:8px;background:#f5eff7}.status:empty{display:none}.success{border:1px solid #b8dfc8;background:#effaf3}.success h2{color:var(--green);margin-top:0}.next{display:inline-block;background:var(--yellow);color:var(--ink);padding:14px 18px;border-radius:8px;font-weight:800;text-decoration:none;margin-top:12px}.foot{font-size:13px;color:var(--muted);text-align:center;padding:0 0 35px}@media(max-width:600px){.row{grid-template-columns:1fr;gap:2px}.card{padding:22px}.top{padding:27px 0}}</style>
+</head>
+<body>
+<div class="top"><div class="wrap"><div class="brand">Dana Pendidikan Inovatif · Innovative University College</div><h1>Penerimaan Tawaran</h1><p>Sahkan penerimaan Surat Tawaran Bersyarat anda secara dalam talian.</p></div></div>
+<main class="wrap">
+  <section class="card" id="loading"><b>Memuatkan maklumat tawaran…</b></section>
+  <section class="card" id="offer" hidden>
+    <h2>Maklumat Tawaran</h2>
+    <div class="summary">
+      <div class="row"><span>Nama</span><strong id="name"></strong></div>
+      <div class="row"><span>Program</span><strong id="programme"></strong></div>
+      <div class="row"><span>No. Rujukan</span><strong id="reference"></strong></div>
+    </div>
+    <div class="notice">Dengan menerima tawaran ini, anda mengesahkan persetujuan untuk meneruskan ke proses pendaftaran rasmi. Yuran Pendaftaran sebanyak <b>RM300</b> perlu dijelaskan pada peringkat pendaftaran.</div>
+    <form id="accept-form">
+      <label class="check"><input id="c1" type="checkbox" required><span>Saya telah membaca dan memahami Surat Tawaran Bersyarat yang diterima.</span></label>
+      <label class="check"><input id="c2" type="checkbox" required><span>Saya bersetuju untuk menerima tawaran bagi program yang dinyatakan.</span></label>
+      <label class="check"><input id="c3" type="checkbox" required><span>Saya memahami bahawa pendaftaran hanya disahkan selepas proses pendaftaran rasmi dan bayaran berkaitan diselesaikan.</span></label>
+      <div class="field"><label for="typed-name">Taip nama penuh sebagai pengesahan *</label><input id="typed-name" required autocomplete="name" maxlength="160"></div>
+      <button class="btn" id="submit" type="submit">Terima Tawaran & Teruskan ↗</button>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+  <section class="card success" id="done" hidden><h2>Tawaran telah diterima ✓</h2><p>Penerimaan anda telah direkodkan. Langkah seterusnya ialah melengkapkan pendaftaran rasmi.</p><a class="next" id="registration-link" href="#" target="_blank" rel="noopener">Teruskan Pendaftaran Rasmi ↗</a></section>
+  <div class="foot">Dana Pendidikan Inovatif · Innovative University College</div>
+</main>
+<script>
+const token=new URLSearchParams(location.search).get('token')||'';
+const loading=document.getElementById('loading'),offer=document.getElementById('offer'),done=document.getElementById('done');
+async function callOffer(action,extra={}){const r=await fetch('/api/dpi-offer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,offerToken:token,...extra})});let p={};try{p=await r.json()}catch(e){}if(!r.ok||!p.ok)throw new Error(p.message||'Permintaan tidak dapat diproses.');return p;}
+async function init(){if(!token){loading.textContent='Pautan tawaran tidak sah.';return;}try{const p=await callOffer('lookup');document.getElementById('name').textContent=p.offer.fullName;document.getElementById('programme').textContent=p.offer.programme;document.getElementById('reference').textContent=p.offer.reference;if(p.offer.offerStatus==='Accepted'||p.offer.acceptedAt){loading.hidden=true;done.hidden=false;document.getElementById('registration-link').href=p.offer.registrationUrl;return;}loading.hidden=true;offer.hidden=false;}catch(e){loading.textContent=e.message;}}
+document.getElementById('accept-form').addEventListener('submit',async e=>{e.preventDefault();const btn=document.getElementById('submit'),status=document.getElementById('status');btn.disabled=true;btn.textContent='Merekod penerimaan…';status.textContent='';try{const p=await callOffer('accept',{accepted:true,typedName:document.getElementById('typed-name').value.trim()});offer.hidden=true;done.hidden=false;document.getElementById('registration-link').href=p.registrationUrl;}catch(err){status.textContent=err.message;btn.disabled=false;btn.textContent='Terima Tawaran & Teruskan ↗';}});
+init();
+</script>
+</body>
+</html>
