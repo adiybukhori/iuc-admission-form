@@ -30,3 +30,4 @@ jobs:
           git add campaigns/dana-pendidikan-inovatif/index.html
           git commit -m "Update DPI application and corporate flows"
           git push
+# Triggered after workflow registration so the patch runs against main.
